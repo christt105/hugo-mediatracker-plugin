@@ -23,6 +23,7 @@ interface TMDBImage {
 	height: number;
 	vote_average: number;
 	vote_count: number;
+	iso_639_1: string | null;
 }
 
 interface TMDBVideo {
@@ -124,10 +125,16 @@ export class TMDBClient {
 		);
 	}
 
+	/**
+	 * Fetch poster/backdrop images. `languages` is an ordered list of ISO-639-1
+	 * codes (e.g. `["es", "en"]`); images are returned grouped by that order so
+	 * the user's preferred locale shows first, followed by language-agnostic art.
+	 */
 	async get_images(
 		id: number,
 		type: MediaType,
 		kind: "poster" | "backdrop",
+		languages: string[],
 		season_number?: number,
 	): Promise<MediaImage[]> {
 		let path: string;
@@ -135,20 +142,26 @@ export class TMDBClient {
 		else if (type === "season") path = `/tv/${id}/season/${season_number}/images`;
 		else path = `/tv/${id}/images`;
 
+		// Always include language-agnostic ("null") art as a fallback.
+		const include = [...languages, "null"].join(",");
 		const data = await get_json<{ posters: TMDBImage[]; backdrops: TMDBImage[] }>(
 			`${TMDB_BASE}${path}`,
-			this.auth_params({ include_image_language: "en,null" }),
+			this.auth_params({ include_image_language: include }),
 			this.auth_headers(),
 		);
 		const list = kind === "poster" ? data.posters : data.backdrops;
+		const rank = (lang: string | null) => {
+			const index = languages.indexOf(lang ?? "");
+			return index === -1 ? languages.length : index;
+		};
 		return (list || [])
-			.sort((a, b) => b.vote_average - a.vote_average)
+			.sort((a, b) => rank(a.iso_639_1) - rank(b.iso_639_1) || b.vote_average - a.vote_average)
 			.map(img => ({
 				url: IMG_ORIGINAL + img.file_path,
 				thumb: IMG_THUMB + img.file_path,
 				width: img.width,
 				height: img.height,
-				source: "TMDB",
+				source: img.iso_639_1 ? `TMDB · ${img.iso_639_1}` : "TMDB",
 				score: img.vote_average,
 			}));
 	}

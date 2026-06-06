@@ -174,6 +174,22 @@ export class MediaTrackerSettingTab extends PluginSettingTab {
 				}),
 			);
 
+		new Setting(containerEl)
+			.setName("Image locales")
+			.setDesc(
+				"Ordered ISO-639-1 codes for cover/banner choices, e.g. \"es,en\". " +
+					"Matching artwork is shown first. Leave empty to use your preferred locale, then English.",
+			)
+			.addText(text =>
+				text
+					.setPlaceholder("es,en")
+					.setValue(this.settings.image_locales)
+					.onChange(async value => {
+						this.settings.image_locales = value.trim();
+						await this.save();
+					}),
+			);
+
 		// ----- IGDB -----
 		new Setting(containerEl).setName("IGDB (video games)").setHeading();
 		this.add_link(

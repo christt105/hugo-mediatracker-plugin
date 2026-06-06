@@ -52,7 +52,8 @@ export interface MediaData {
 	steamgriddb_id?: number;
 	developer?: string;
 	developer_logo?: string;
-	platforms?: string[];
+	/** Platforms the game is available on (from IGDB). */
+	available_platforms?: string[];
 	game_modes?: string[];
 
 	// Season

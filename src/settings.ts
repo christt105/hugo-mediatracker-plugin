@@ -11,6 +11,11 @@ export interface MediaTrackerSettings {
 	locale_preference: string;
 	ask_preferred_locale: boolean;
 	include_adult: boolean;
+	/**
+	 * Ordered, comma-separated ISO-639-1 codes used to sort cover/banner choices
+	 * (e.g. "es,en"). Empty falls back to the preferred locale, then English.
+	 */
+	image_locales: string;
 
 	// --- IGDB (games) ---
 	igdb_client_id: string;
@@ -55,6 +60,7 @@ export const DEFAULT_SETTINGS: MediaTrackerSettings = {
 	locale_preference: "auto",
 	ask_preferred_locale: false,
 	include_adult: false,
+	image_locales: "",
 
 	igdb_client_id: "",
 	igdb_client_secret: "",

@@ -25,63 +25,57 @@ export function default_frontmatter(
 	settings: MediaTrackerSettings,
 ): Record<string, unknown> {
 	const status = settings.default_status;
+	// A shared leading block keeps property order consistent across every type.
+	const common = {
+		date: "",
+		rewatches: [],
+		release_date: media.release_date,
+		status,
+		cover: media.cover,
+		banner: media.banner,
+		rating: "",
+	};
 	let fm: Record<string, unknown>;
 
 	if (media.type === "videogame") {
 		fm = {
 			title: media.title,
 			type: "videogame",
-			date: "",
-			rewatches: [],
-			release_date: media.release_date,
-			status,
-			cover: media.cover,
-			banner: media.banner,
-			developer: media.developer ?? "",
+			...common,
 			genres: media.genres,
-			rating: "",
+			developer: media.developer ?? "",
+			// `platforms` is left for you to record where you played it.
+			platforms: [],
+			available_platforms: media.available_platforms ?? [],
 			igdb_id: media.igdb_id,
 			steam_appid: media.steam_appid ?? "",
+			...(media.steamgriddb_id ? { steamgriddb_id: media.steamgriddb_id } : {}),
 			tags: [],
 			related: [],
-			platforms: media.platforms ?? [],
 			overview: media.overview,
 		};
-		if (media.steamgriddb_id) fm.steamgriddb_id = media.steamgriddb_id;
 	} else if (media.type === "season") {
 		fm = {
 			title: media.title,
 			type: "season",
 			series: media.series_file ? `[[${media.series_file}]]` : "",
 			season_number: media.season_number,
-			status,
-			cover: media.cover,
-			banner: media.banner,
-			date: "",
-			rewatches: [],
-			release_date: media.release_date,
+			...common,
 			tags: [],
-			rating: "",
 		};
 	} else {
 		// movie or tv
 		fm = {
 			title: media.title,
 			type: media.type,
-			date: "",
-			rewatches: [],
-			release_date: media.release_date,
-			status,
-			cover: media.cover,
-			banner: media.banner,
-			rating: "",
+			...common,
 			genres: media.genres,
 			tmdb_id: media.tmdb_id,
+			...(media.type === "tv" ? { [settings.seasons_property]: [] } : {}),
 			tags: [],
 			related: [],
 			overview: media.overview,
 		};
-		if (media.type === "tv") fm[settings.seasons_property] = [];
 	}
 
 	return settings.frontmatter_case === FrontmatterCase.camel ? to_camel_keys(fm) : fm;

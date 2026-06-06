@@ -14,6 +14,7 @@ import { search_steam } from "@/apis/steam";
 import { SteamGridDBClient } from "@/apis/steamgriddb";
 import { render_note, substitute_variables } from "@/render";
 import { choose, choose_image, choose_result, confirm, prompt } from "@/modals";
+import { MEDIA_VIEWS_BASE } from "@/base";
 
 /** Note frontmatter is untyped; we treat values as `unknown` and narrow them. */
 type Frontmatter = Record<string, unknown>;
@@ -48,6 +49,11 @@ export default class MediaTrackerPlugin extends Plugin {
 			id: "update-images",
 			name: "Update images (cover / banner)",
 			callback: () => this.run(() => this.update_images()),
+		});
+		this.addCommand({
+			id: "create-views-base",
+			name: "Create media views (Bases gallery & table)",
+			callback: () => this.run(() => this.create_views_base()),
 		});
 
 		this.addRibbonIcon("clapperboard", "Add movie or TV show", () =>
@@ -263,6 +269,32 @@ export default class MediaTrackerPlugin extends Plugin {
 		new Notice(`Updated ${property}.`);
 	}
 
+	private async create_views_base() {
+		// Place the base alongside the media folders (their common parent).
+		const movies = this.settings.movies_folder;
+		const parent = movies.includes("/") ? movies.split("/").slice(0, -1).join("/") : "";
+		const path = parent ? `${parent}/Media Tracker Views.base` : "Media Tracker Views.base";
+
+		await this.ensure_folder(parent);
+
+		const existing = this.app.vault.getAbstractFileByPath(path);
+		if (existing instanceof TFile) {
+			const overwrite = await confirm(this.app, `"${path}" already exists. Overwrite it?`);
+			if (!overwrite) {
+				await this.open_note(existing);
+				return;
+			}
+			await this.app.vault.modify(existing, MEDIA_VIEWS_BASE);
+			await this.open_note(existing);
+			new Notice("Media views updated.");
+			return;
+		}
+
+		const file = await this.app.vault.create(path, MEDIA_VIEWS_BASE);
+		await this.open_note(file);
+		new Notice("Created media views base.");
+	}
+
 	// --- Image helpers --------------------------------------------------------
 
 	private async fetch_tmdb_images(
@@ -272,8 +304,9 @@ export default class MediaTrackerPlugin extends Plugin {
 		kind: "poster" | "backdrop",
 	): Promise<MediaImage[] | null> {
 		const tmdb = this.tmdb();
+		const languages = this.image_languages();
 		let tmdb_id = fm?.tmdb_id as number | undefined;
-		const season_number = fm?.season_number as number | undefined;
+		const season_number = Number(fm?.season_number) || undefined;
 
 		// For a season note, look up the parent show's tmdb_id.
 		const series = fm?.series;
@@ -286,9 +319,36 @@ export default class MediaTrackerPlugin extends Plugin {
 			return null;
 		}
 
-		const images = await tmdb.get_images(tmdb_id, type, kind, season_number);
+		let images: MediaImage[];
+		if (type === "season") {
+			// TMDB only exposes posters per season (no backdrops), so banners and
+			// empty season posters fall back to the parent show's artwork.
+			if (kind === "poster" && season_number) {
+				images = await tmdb.get_images(tmdb_id, "season", "poster", languages, season_number);
+				if (!images.length) images = await tmdb.get_images(tmdb_id, "tv", "poster", languages);
+			} else {
+				images = await tmdb.get_images(tmdb_id, "tv", kind, languages);
+			}
+		} else {
+			images = await tmdb.get_images(tmdb_id, type, kind, languages);
+		}
 		if (!images.length) new Notice("No images found on TMDB.");
 		return images;
+	}
+
+	/** Ordered ISO-639-1 codes for sorting image choices. */
+	private image_languages(): string[] {
+		const configured = this.settings.image_locales
+			.split(",")
+			.map(s => s.trim())
+			.filter(Boolean);
+		if (configured.length) return configured;
+
+		const languages: string[] = [];
+		const preferred = this.settings.locale_preference;
+		if (preferred && preferred !== "auto") languages.push(preferred.split("-")[0]);
+		if (!languages.includes("en")) languages.push("en");
+		return languages;
 	}
 
 	private async fetch_game_images(

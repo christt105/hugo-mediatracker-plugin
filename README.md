@@ -37,6 +37,7 @@ wire up, no extra plugins required.
 | **Create season (from active show note)** | Create a season note linked to the open TV show. |
 | **Search Steam App ID (for active note)** | Find and store `steam_appid`. |
 | **Update images (cover / banner)** | Pick a new cover or banner for the active note. |
+| **Create media views (Bases gallery & table)** | Generate a `.base` file with ready-made gallery and table views. |
 
 Two ribbon icons are also added: 🎬 *Add movie or TV show* and 🎮 *Add video game*.
 Assign your own hotkeys in **Settings → Hotkeys** (search for "Media Tracker").
@@ -90,8 +91,13 @@ with commas.
 Available variables include: `title`, `original_title`, `type`, `release_date`,
 `year`, `overview`, `cover`, `banner`, `genres`, `rating`, `tmdb_id`, `director`,
 `main_actors`, `homepage`, `tagline`, `youtube_url`, `number_of_seasons`, `igdb_id`,
-`steam_appid`, `steamgriddb_id`, `developer`, `platforms`, `game_modes`,
+`steam_appid`, `steamgriddb_id`, `developer`, `available_platforms`, `game_modes`,
 `season_number`, `series_file`.
+
+> [!NOTE]
+> For games, `available_platforms` holds the platforms the game is released on (from
+> IGDB). The separate `platforms` property is left empty for you to record the
+> platform(s) you actually played it on.
 
 ## Generated frontmatter
 
@@ -120,12 +126,36 @@ overview: "Eighties teenager Marty McFly..."
 ---
 ```
 
-## Installation (manual)
+## Installation
+
+### With BRAT (recommended)
+
+[BRAT](https://github.com/TfTHacker/obsidian42-brat) installs and auto-updates the
+plugin straight from this repository:
+
+1. Install **BRAT** from *Settings → Community plugins → Browse* and enable it.
+2. Run the command **BRAT: Add a beta plugin for testing** (or *Settings → BRAT →
+   Add Beta Plugin*).
+3. Enter `christt105/hugo-mediatracker-plugin` and confirm. BRAT grabs the latest
+   release, so leave the version as *latest*.
+4. Enable **Media Tracker** in *Settings → Community plugins* and add your API keys.
+
+> Requires Obsidian **1.6.6+**.
+
+### Manual
 
 1. Download `main.js`, `manifest.json` and `styles.css` from the
    [latest release](https://github.com/christt105/hugo-mediatracker-plugin/releases).
 2. Copy them into `<vault>/.obsidian/plugins/media-tracker/`.
 3. Reload Obsidian and enable **Media Tracker** in *Settings → Community plugins*.
+
+## Recommended companion plugins
+
+- [**Pretty Properties**](https://obsidian.md/plugins?id=pretty-properties) — renders
+  the `cover` and `banner` properties as proper images/banners, giving each note a
+  rich, gallery-like look. Highly recommended for the best visualization.
+- [**Bases**](https://help.obsidian.md/bases) (core plugin) — run **Create media
+  views** to generate a `.base` with gallery and table views of your whole library.
 
 ## Development
 

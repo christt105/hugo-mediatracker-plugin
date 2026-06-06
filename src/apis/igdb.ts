@@ -92,7 +92,7 @@ export class IGDBClient {
 			developer_logo: developer?.company.logo
 				? "https:" + developer.company.logo.url.replace("thumb", "logo_med")
 				: undefined,
-			platforms: (g.platforms || []).map(x => x.name),
+			available_platforms: (g.platforms || []).map(x => x.name),
 			game_modes: (g.game_modes || []).map(x => x.name),
 		};
 	}
