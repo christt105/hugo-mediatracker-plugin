@@ -11,7 +11,7 @@ const ARTWORK_BASE = "https://artworks.thetvdb.com";
  * the API-key step (they may still need a subscriber PIN). Leave empty to
  * require each user to provide their own key.
  */
-export const DEFAULT_THETVDB_API_KEY = "";
+export const DEFAULT_THETVDB_API_KEY = "907916c7-c079-4265-8fd6-7e0934c48dba";
 
 interface TVDBArtwork {
 	id: number;
