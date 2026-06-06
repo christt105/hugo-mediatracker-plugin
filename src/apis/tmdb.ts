@@ -110,6 +110,16 @@ export class TMDBClient {
 		};
 	}
 
+	/** The TheTVDB id cross-referenced by TMDB for a show, when available. */
+	async get_tvdb_id(tv_id: number): Promise<number | undefined> {
+		const r = await get_json<{ tvdb_id?: number | null }>(
+			`${TMDB_BASE}/tv/${tv_id}/external_ids`,
+			this.auth_params({}),
+			this.auth_headers(),
+		);
+		return r.tvdb_id ?? undefined;
+	}
+
 	/** Information for a single TV season, used when creating season notes. */
 	async get_season(tv_id: number, season_number: number, language: string) {
 		return get_json<{

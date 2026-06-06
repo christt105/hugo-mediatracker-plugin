@@ -1,6 +1,6 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type MediaTrackerPlugin from "@/main";
-import { FrontmatterCase } from "@/settings";
+import { FrontmatterCase, ProviderPreference } from "@/settings";
 import { FileSuggest, FolderSuggest } from "@/suggesters";
 
 export class MediaTrackerSettingTab extends PluginSettingTab {
@@ -123,6 +123,19 @@ export class MediaTrackerSettingTab extends PluginSettingTab {
 		this.add_file_setting(containerEl, "Season template", "template_season");
 		this.add_file_setting(containerEl, "Game template", "template_game");
 
+		// ----- Providers -----
+		new Setting(containerEl).setName("Providers").setHeading();
+		containerEl.createEl("p", {
+			cls: "setting-item-description",
+			text:
+				"Choose which service supplies data and artwork for each kind. " +
+				'"Auto" uses TMDB for movies and TheTVDB for shows when both are configured, ' +
+				"otherwise whichever key you set. TheTVDB respects season numbering (best for anime).",
+		});
+
+		this.add_provider_setting(containerEl, "Movie provider", "movie_provider");
+		this.add_provider_setting(containerEl, "TV show provider", "tv_provider");
+
 		// ----- TMDB -----
 		new Setting(containerEl).setName("TMDB (movies & TV)").setHeading();
 		this.add_link(
@@ -190,6 +203,37 @@ export class MediaTrackerSettingTab extends PluginSettingTab {
 					}),
 			);
 
+		// ----- TheTVDB -----
+		new Setting(containerEl).setName("TheTVDB (TV shows & seasons)").setHeading();
+		this.add_link(
+			containerEl,
+			"Register a project to get a v4 API key. Personal keys also need a subscriber PIN.",
+			"https://www.thetvdb.com/api-information",
+		);
+
+		new Setting(containerEl).setName("TheTVDB API key").addText(text => {
+			text.inputEl.type = "password";
+			text.setValue(this.settings.thetvdb_api_key).onChange(async value => {
+				this.settings.thetvdb_api_key = value.trim();
+				this.settings.thetvdb_token = "";
+				this.settings.thetvdb_token_expires_at = 0;
+				await this.save();
+			});
+		});
+
+		new Setting(containerEl)
+			.setName("TheTVDB subscriber PIN")
+			.setDesc("Optional. Required for personal / user-supported API keys.")
+			.addText(text => {
+				text.inputEl.type = "password";
+				text.setValue(this.settings.thetvdb_pin).onChange(async value => {
+					this.settings.thetvdb_pin = value.trim();
+					this.settings.thetvdb_token = "";
+					this.settings.thetvdb_token_expires_at = 0;
+					await this.save();
+				});
+			});
+
 		// ----- IGDB -----
 		new Setting(containerEl).setName("IGDB (video games)").setHeading();
 		this.add_link(
@@ -243,6 +287,24 @@ export class MediaTrackerSettingTab extends PluginSettingTab {
 				await this.save();
 			});
 		});
+	}
+
+	private add_provider_setting(
+		container: HTMLElement,
+		name: string,
+		key: "movie_provider" | "tv_provider",
+	) {
+		new Setting(container).setName(name).addDropdown(dd =>
+			dd
+				.addOption("auto", "Auto")
+				.addOption("tmdb", "TMDB")
+				.addOption("thetvdb", "TheTVDB")
+				.setValue(this.settings[key])
+				.onChange(async value => {
+					this.settings[key] = value as ProviderPreference;
+					await this.save();
+				}),
+		);
 	}
 
 	private add_folder_setting(

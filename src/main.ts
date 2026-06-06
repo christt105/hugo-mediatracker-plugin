@@ -1,6 +1,6 @@
 import { Notice, Plugin, TFile } from "obsidian";
 
-import { MediaData, MediaImage, MediaType } from "@/types";
+import { MediaData, MediaImage, MediaType, Provider, SearchResult } from "@/types";
 import {
 	DEFAULT_SETTINGS,
 	MediaTrackerSettings,
@@ -9,6 +9,7 @@ import {
 } from "@/settings";
 import { MediaTrackerSettingTab } from "@/settings_tab";
 import { TMDBClient } from "@/apis/tmdb";
+import { TheTVDBClient } from "@/apis/thetvdb";
 import { IGDBClient } from "@/apis/igdb";
 import { search_steam } from "@/apis/steam";
 import { SteamGridDBClient } from "@/apis/steamgriddb";
@@ -90,6 +91,39 @@ export default class MediaTrackerPlugin extends Plugin {
 		return new TMDBClient(this.settings.tmdb_api_key, this.settings.include_adult);
 	}
 
+	private thetvdb(): TheTVDBClient {
+		if (!this.settings.thetvdb_api_key) throw new Error("Set your TheTVDB API key in the settings.");
+		return new TheTVDBClient(this.settings.thetvdb_api_key, this.settings.thetvdb_pin, {
+			token: this.settings.thetvdb_token,
+			expires_at: this.settings.thetvdb_token_expires_at,
+			save: async (token, expires_at) => {
+				this.settings.thetvdb_token = token;
+				this.settings.thetvdb_token_expires_at = expires_at;
+				await this.saveSettings();
+			},
+		});
+	}
+
+	private provider_configured(provider: Provider): boolean {
+		return provider === "tmdb" ? !!this.settings.tmdb_api_key : !!this.settings.thetvdb_api_key;
+	}
+
+	/**
+	 * Pick the provider for a media kind from the user's preference, falling back
+	 * to whichever is configured. Throws if neither TMDB nor TheTVDB is set up.
+	 */
+	private resolve_provider(kind: "movie" | "tv"): Provider {
+		const preference = kind === "movie" ? this.settings.movie_provider : this.settings.tv_provider;
+		// "auto": movies favour TMDB, TV favours TheTVDB (it respects seasons).
+		let provider: Provider = preference === "auto" ? (kind === "movie" ? "tmdb" : "thetvdb") : preference;
+		if (!this.provider_configured(provider)) {
+			const other: Provider = provider === "tmdb" ? "thetvdb" : "tmdb";
+			if (this.provider_configured(other)) return other;
+			throw new Error("Set a TMDB or TheTVDB API key in the settings.");
+		}
+		return provider;
+	}
+
 	private igdb(): IGDBClient {
 		if (!this.settings.igdb_client_id || !this.settings.igdb_client_secret) {
 			throw new Error("Set your IGDB client ID and secret in the settings.");
@@ -120,13 +154,14 @@ export default class MediaTrackerPlugin extends Plugin {
 	// --- Commands -------------------------------------------------------------
 
 	private async add_movie_or_tv() {
-		const tmdb = this.tmdb();
-		const language = await this.resolve_language();
+		const movie_provider = this.resolve_provider("movie");
+		const tv_provider = this.resolve_provider("tv");
 
 		const query = await prompt(this.app, "Search movie or TV show");
 		if (!query) return;
 
-		const results = await tmdb.search(query, language);
+		const language = await this.resolve_language();
+		const results = await this.search_titles(query, movie_provider, tv_provider, language);
 		if (!results.length) {
 			new Notice(`No results for "${query}".`);
 			return;
@@ -134,8 +169,59 @@ export default class MediaTrackerPlugin extends Plugin {
 		const selected = await choose_result(this.app, results);
 		if (!selected) return;
 
-		const media = await tmdb.get_details(selected.id, selected.media_type, language);
+		const media = await this.fetch_details(selected, language);
 		await this.create_note(media);
+	}
+
+	/**
+	 * Search for titles. When movies and TV use the same provider a single
+	 * search covers both; otherwise each provider is queried for its kind and
+	 * the results are merged into one chooser.
+	 */
+	private async search_titles(
+		query: string,
+		movie_provider: Provider,
+		tv_provider: Provider,
+		language: string,
+	): Promise<SearchResult[]> {
+		if (movie_provider === tv_provider) {
+			return this.provider_search(movie_provider, query, "all", language);
+		}
+		const [movies, shows] = await Promise.all([
+			this.provider_search(movie_provider, query, "movie", language).catch(report_empty),
+			this.provider_search(tv_provider, query, "tv", language).catch(report_empty),
+		]);
+		return [...movies, ...shows];
+	}
+
+	private async provider_search(
+		provider: Provider,
+		query: string,
+		kind: "all" | "movie" | "tv",
+		language: string,
+	): Promise<SearchResult[]> {
+		if (provider === "tmdb") {
+			const results = await this.tmdb().search(query, language);
+			const filtered = kind === "all" ? results : results.filter(r => r.media_type === kind);
+			return filtered.map(r => ({ ...r, provider: "tmdb" as const }));
+		}
+		return this.thetvdb().search(query, kind);
+	}
+
+	private async fetch_details(selected: SearchResult, language: string): Promise<MediaData> {
+		if (selected.provider === "thetvdb") {
+			return this.thetvdb().get_details(selected.id, selected.media_type);
+		}
+		const media = await this.tmdb().get_details(selected.id, selected.media_type, language);
+		// Cross-reference the TheTVDB id so season artwork can use either provider.
+		if (selected.media_type === "tv") {
+			try {
+				media.thetvdb_id = await this.tmdb().get_tvdb_id(selected.id);
+			} catch (error) {
+				console.warn("Media Tracker: could not fetch TheTVDB id", error);
+			}
+		}
+		return media;
 	}
 
 	private async add_game() {
@@ -173,6 +259,7 @@ export default class MediaTrackerPlugin extends Plugin {
 
 		const parent_title: string = (fm.title as string) || file.basename;
 		const tmdb_id = fm.tmdb_id as number | undefined;
+		const thetvdb_id = fm.thetvdb_id as number | undefined;
 
 		const media: MediaData = {
 			type: "season",
@@ -189,18 +276,24 @@ export default class MediaTrackerPlugin extends Plugin {
 			series_file: file.basename,
 		};
 
-		// Enrich from TMDB when possible.
-		if (tmdb_id && this.settings.tmdb_api_key) {
-			try {
+		// Enrich the season cover. TheTVDB respects season numbering, so prefer it
+		// when available; otherwise use TMDB (which also gives the air date).
+		const prefer_tvdb =
+			!!thetvdb_id && !!this.settings.thetvdb_api_key && this.settings.tv_provider !== "tmdb";
+		try {
+			if (prefer_tvdb && thetvdb_id) {
+				const images = await this.thetvdb().get_season_images(thetvdb_id, season_number, "poster");
+				if (images.length) media.cover = images[0].url;
+			} else if (tmdb_id && this.settings.tmdb_api_key) {
 				const language = await this.resolve_language();
 				const season = await this.tmdb().get_season(tmdb_id, season_number, language);
 				if (season.air_date) media.release_date = season.air_date;
 				if (season.poster_path) {
 					media.cover = `https://image.tmdb.org/t/p/original${season.poster_path}`;
 				}
-			} catch (error) {
-				console.warn("Media Tracker: could not fetch season details", error);
 			}
+		} catch (error) {
+			console.warn("Media Tracker: could not fetch season details", error);
 		}
 
 		const new_file = await this.create_note(media);
@@ -254,7 +347,7 @@ export default class MediaTrackerPlugin extends Plugin {
 		const images =
 			type === "videogame"
 				? await this.fetch_game_images(file, fm, kind)
-				: await this.fetch_tmdb_images(file, fm, type, kind);
+				: await this.fetch_av_images(file, fm, type, kind);
 		if (!images || !images.length) return;
 
 		const selected = await choose_image(this.app, images);
@@ -297,56 +390,95 @@ export default class MediaTrackerPlugin extends Plugin {
 
 	// --- Image helpers --------------------------------------------------------
 
-	private async fetch_tmdb_images(
+	/**
+	 * Fetch movie / TV / season artwork. Uses the preferred provider for the
+	 * media kind and falls back to the other when an id or season is missing
+	 * there. Ids are read from the note, or the parent show for seasons.
+	 */
+	private async fetch_av_images(
 		file: TFile,
 		fm: Frontmatter | undefined,
 		type: MediaType,
 		kind: "poster" | "backdrop",
 	): Promise<MediaImage[] | null> {
-		const tmdb = this.tmdb();
-		const languages = this.image_languages();
-		let tmdb_id = fm?.tmdb_id as number | undefined;
 		const season_number = Number(fm?.season_number) || undefined;
+		let tmdb_id = fm?.tmdb_id as number | undefined;
+		let thetvdb_id = fm?.thetvdb_id as number | undefined;
 
-		// For a season note, the tmdb_id lives on the parent show. The `series`
-		// property may be a string or a list, with or without [[...]] / aliases.
-		if (type === "season" && !tmdb_id) {
+		// Seasons carry no ids of their own — resolve them from the parent show.
+		if (type === "season") {
 			const parent = this.resolve_first_link(fm?.series, file);
 			if (!parent) {
-				new Notice(
-					"Couldn't find the parent show. The season's 'series' property must link to it.",
-				);
+				new Notice("Couldn't find the parent show. The season's 'series' property must link to it.");
 				return null;
 			}
-			tmdb_id = this.frontmatter_of(parent)?.tmdb_id as number | undefined;
-			if (!tmdb_id) {
-				new Notice(`The show "${parent.basename}" has no 'tmdb_id'.`);
-				return null;
-			}
+			const pfm = this.frontmatter_of(parent);
+			tmdb_id = tmdb_id ?? (pfm?.tmdb_id as number | undefined);
+			thetvdb_id = thetvdb_id ?? (pfm?.thetvdb_id as number | undefined);
 		}
-		if (!tmdb_id) {
-			new Notice("No 'tmdb_id' found on this note.");
+		if (!tmdb_id && !thetvdb_id) {
+			new Notice("No 'tmdb_id' or 'thetvdb_id' found on this note (or its parent show).");
 			return null;
 		}
 
-		let images: MediaImage[] = [];
-		if (type === "season") {
-			// Only posters exist per season on TMDB (no backdrops), and a season
-			// that isn't on TMDB yet returns 404. In both cases fall back to the
-			// parent show's artwork.
-			if (kind === "poster" && season_number) {
-				try {
-					images = await tmdb.get_images(tmdb_id, "season", "poster", languages, season_number);
-				} catch (error) {
-					console.warn("Media Tracker: season images unavailable, using show artwork", error);
+		const kind_pref = type === "movie" ? "movie" : "tv";
+		const preferred = this.resolve_provider(kind_pref);
+		const order: Provider[] = preferred === "thetvdb" ? ["thetvdb", "tmdb"] : ["tmdb", "thetvdb"];
+
+		for (const provider of order) {
+			try {
+				if (provider === "tmdb" && tmdb_id && this.settings.tmdb_api_key) {
+					const images = await this.tmdb_av_images(tmdb_id, type, kind, season_number);
+					if (images.length) return images;
+				} else if (provider === "thetvdb" && thetvdb_id && this.settings.thetvdb_api_key) {
+					const images = await this.thetvdb_av_images(thetvdb_id, type, kind, season_number);
+					if (images.length) return images;
 				}
+			} catch (error) {
+				console.warn(`Media Tracker: ${provider} images failed, trying fallback`, error);
 			}
-			if (!images.length) images = await tmdb.get_images(tmdb_id, "tv", kind, languages);
-		} else {
-			images = await tmdb.get_images(tmdb_id, type, kind, languages);
 		}
-		if (!images.length) new Notice("No images found on TMDB.");
+		new Notice("No images found.");
+		return null;
+	}
+
+	private async tmdb_av_images(
+		id: number,
+		type: MediaType,
+		kind: "poster" | "backdrop",
+		season_number?: number,
+	): Promise<MediaImage[]> {
+		const tmdb = this.tmdb();
+		const languages = this.image_languages();
+		if (type !== "season") return tmdb.get_images(id, type, kind, languages);
+
+		// TMDB has season posters only (no backdrops) and 404s for missing
+		// seasons, so fall back to the show's artwork.
+		let images: MediaImage[] = [];
+		if (kind === "poster" && season_number) {
+			try {
+				images = await tmdb.get_images(id, "season", "poster", languages, season_number);
+			} catch (error) {
+				console.warn("Media Tracker: TMDB season images unavailable, using show", error);
+			}
+		}
+		if (!images.length) images = await tmdb.get_images(id, "tv", kind, languages);
 		return images;
+	}
+
+	private async thetvdb_av_images(
+		id: number,
+		type: MediaType,
+		kind: "poster" | "backdrop",
+		season_number?: number,
+	): Promise<MediaImage[]> {
+		const client = this.thetvdb();
+		if (type === "movie") return client.get_movie_images(id, kind);
+		if (type === "season" && season_number) {
+			const images = await client.get_season_images(id, season_number, kind);
+			if (images.length) return images;
+		}
+		return client.get_series_images(id, kind);
 	}
 
 	/** Ordered ISO-639-1 codes for sorting image choices. */
@@ -523,4 +655,10 @@ export default class MediaTrackerPlugin extends Plugin {
 
 function sanitize_file_name(name: string): string {
 	return name.replace(/[\\/:*?"<>|#^[\]]/g, "").replace(/\s+/g, " ").trim();
+}
+
+/** Log a failed provider search and continue with no results. */
+function report_empty(error: unknown): SearchResult[] {
+	console.warn("Media Tracker: search failed for one provider", error);
+	return [];
 }

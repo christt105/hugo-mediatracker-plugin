@@ -2,6 +2,8 @@
 
 export type MediaType = "movie" | "tv" | "season" | "videogame";
 
+export type Provider = "tmdb" | "thetvdb";
+
 export type ImageKind = "poster" | "backdrop";
 
 /** A lightweight result returned by a search, used to populate the chooser. */
@@ -16,6 +18,8 @@ export interface SearchResult {
 	release_date?: string;
 	/** Small image used as a thumbnail in the chooser. */
 	poster_path?: string;
+	/** Which service produced this result (drives the detail fetch). */
+	provider?: Provider;
 	/** Provider specific payload so the detail fetch can reuse it. */
 	raw?: unknown;
 }
@@ -38,6 +42,7 @@ export interface MediaData {
 
 	// Movies / TV
 	tmdb_id?: number;
+	thetvdb_id?: number;
 	director?: string;
 	main_actors?: string[];
 	homepage?: string;

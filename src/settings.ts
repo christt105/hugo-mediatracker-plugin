@@ -1,9 +1,12 @@
-import { MediaType } from "@/types";
+import { MediaType, Provider } from "@/types";
 
 export enum FrontmatterCase {
 	snake = "snake_case",
 	camel = "camelCase",
 }
+
+/** Provider preference for a media kind; "auto" picks the best configured one. */
+export type ProviderPreference = Provider | "auto";
 
 export interface MediaTrackerSettings {
 	// --- TMDB (movies / tv) ---
@@ -16,6 +19,17 @@ export interface MediaTrackerSettings {
 	 * (e.g. "es,en"). Empty falls back to the preferred locale, then English.
 	 */
 	image_locales: string;
+
+	// --- TheTVDB (TV shows & seasons) ---
+	thetvdb_api_key: string;
+	/** Optional subscriber PIN (required for personal/user-supported keys). */
+	thetvdb_pin: string;
+	thetvdb_token: string;
+	thetvdb_token_expires_at: number;
+
+	// --- Provider preferences ---
+	movie_provider: ProviderPreference;
+	tv_provider: ProviderPreference;
 
 	// --- IGDB (games) ---
 	igdb_client_id: string;
@@ -61,6 +75,14 @@ export const DEFAULT_SETTINGS: MediaTrackerSettings = {
 	ask_preferred_locale: false,
 	include_adult: false,
 	image_locales: "",
+
+	thetvdb_api_key: "",
+	thetvdb_pin: "",
+	thetvdb_token: "",
+	thetvdb_token_expires_at: 0,
+
+	movie_provider: "auto",
+	tv_provider: "auto",
 
 	igdb_client_id: "",
 	igdb_client_secret: "",
