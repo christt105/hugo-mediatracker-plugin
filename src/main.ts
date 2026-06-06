@@ -329,16 +329,19 @@ export default class MediaTrackerPlugin extends Plugin {
 			return null;
 		}
 
-		let images: MediaImage[];
+		let images: MediaImage[] = [];
 		if (type === "season") {
-			// TMDB only exposes posters per season (no backdrops), so banners and
-			// empty season posters fall back to the parent show's artwork.
+			// Only posters exist per season on TMDB (no backdrops), and a season
+			// that isn't on TMDB yet returns 404. In both cases fall back to the
+			// parent show's artwork.
 			if (kind === "poster" && season_number) {
-				images = await tmdb.get_images(tmdb_id, "season", "poster", languages, season_number);
-				if (!images.length) images = await tmdb.get_images(tmdb_id, "tv", "poster", languages);
-			} else {
-				images = await tmdb.get_images(tmdb_id, "tv", kind, languages);
+				try {
+					images = await tmdb.get_images(tmdb_id, "season", "poster", languages, season_number);
+				} catch (error) {
+					console.warn("Media Tracker: season images unavailable, using show artwork", error);
+				}
 			}
+			if (!images.length) images = await tmdb.get_images(tmdb_id, "tv", kind, languages);
 		} else {
 			images = await tmdb.get_images(tmdb_id, type, kind, languages);
 		}
