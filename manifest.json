@@ -1,0 +1,11 @@
+{
+	"id": "media-tracker",
+	"name": "Media Tracker",
+	"version": "1.0.0",
+	"minAppVersion": "1.4.0",
+	"description": "Track movies, TV shows, seasons and video games in one place. Pulls data and artwork from TMDB, IGDB, Steam and SteamGridDB.",
+	"author": "christt105",
+	"authorUrl": "https://github.com/christt105",
+	"fundingUrl": "https://ko-fi.com/christt105",
+	"isDesktopOnly": false
+}

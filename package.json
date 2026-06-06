@@ -1,0 +1,31 @@
+{
+	"name": "media-tracker",
+	"version": "1.0.0",
+	"description": "Track movies, TV shows, seasons and video games in Obsidian. Data and artwork from TMDB, IGDB, Steam and SteamGridDB.",
+	"main": "main.js",
+	"scripts": {
+		"dev": "node esbuild.config.mjs",
+		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"version": "node version-bump.mjs && git add manifest.json versions.json"
+	},
+	"keywords": [
+		"obsidian",
+		"obsidian-plugin",
+		"media-tracker",
+		"movies",
+		"tv",
+		"games",
+		"tmdb",
+		"igdb"
+	],
+	"author": "christt105",
+	"license": "MIT",
+	"devDependencies": {
+		"@types/node": "^16.11.6",
+		"builtin-modules": "^3.3.0",
+		"esbuild": "0.17.3",
+		"obsidian": "latest",
+		"tslib": "2.4.0",
+		"typescript": "4.7.4"
+	}
+}
