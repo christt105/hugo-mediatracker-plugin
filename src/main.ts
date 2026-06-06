@@ -1,6 +1,6 @@
 import { Notice, Plugin, TFile } from "obsidian";
 
-import { MediaData, MediaImage, MediaType, SearchResult } from "@/types";
+import { MediaData, MediaImage, MediaType } from "@/types";
 import {
 	DEFAULT_SETTINGS,
 	MediaTrackerSettings,
@@ -14,6 +14,9 @@ import { search_steam } from "@/apis/steam";
 import { SteamGridDBClient } from "@/apis/steamgriddb";
 import { render_note, substitute_variables } from "@/render";
 import { choose, choose_image, choose_result, confirm, prompt } from "@/modals";
+
+/** Note frontmatter is untyped; we treat values as `unknown` and narrow them. */
+type Frontmatter = Record<string, unknown>;
 
 export default class MediaTrackerPlugin extends Plugin {
 	settings: MediaTrackerSettings;
@@ -56,7 +59,8 @@ export default class MediaTrackerPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const data = (await this.loadData()) as Partial<MediaTrackerSettings> | null;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
 	}
 
 	async saveSettings() {
@@ -147,8 +151,8 @@ export default class MediaTrackerPlugin extends Plugin {
 
 	private async create_season() {
 		const file = this.active_markdown_file();
-		const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
-		if (fm?.type !== "tv") {
+		const fm = this.frontmatter_of(file);
+		if (!fm || fm.type !== "tv") {
 			new Notice("Open a TV show note (type: tv) to create a season.");
 			return;
 		}
@@ -161,8 +165,8 @@ export default class MediaTrackerPlugin extends Plugin {
 			return;
 		}
 
-		const parent_title: string = fm.title || file.basename;
-		const tmdb_id: number | undefined = fm.tmdb_id;
+		const parent_title: string = (fm.title as string) || file.basename;
+		const tmdb_id = fm.tmdb_id as number | undefined;
 
 		const media: MediaData = {
 			type: "season",
@@ -171,8 +175,8 @@ export default class MediaTrackerPlugin extends Plugin {
 			release_date: "",
 			year: "",
 			overview: "",
-			cover: fm.cover ?? "",
-			banner: fm.banner ?? "",
+			cover: (fm.cover as string | undefined) ?? "",
+			banner: (fm.banner as string | undefined) ?? "",
 			genres: [],
 			rating: "",
 			season_number,
@@ -199,8 +203,8 @@ export default class MediaTrackerPlugin extends Plugin {
 
 	private async search_steam_id() {
 		const file = this.active_markdown_file();
-		const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
-		const default_query: string = fm?.title || file.basename;
+		const fm = this.frontmatter_of(file);
+		const default_query: string = (fm?.title as string) || file.basename;
 
 		const query = await prompt(this.app, "Search game on Steam", default_query);
 		if (!query) return;
@@ -218,7 +222,7 @@ export default class MediaTrackerPlugin extends Plugin {
 		);
 		if (!selected) return;
 
-		await this.app.fileManager.processFrontMatter(file, frontmatter => {
+		await this.app.fileManager.processFrontMatter(file, (frontmatter: Frontmatter) => {
 			frontmatter.steam_appid = selected.id;
 		});
 		new Notice(`Steam App ID ${selected.id} saved.`);
@@ -226,8 +230,8 @@ export default class MediaTrackerPlugin extends Plugin {
 
 	private async update_images() {
 		const file = this.active_markdown_file();
-		const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
-		const type: MediaType | undefined = fm?.type;
+		const fm = this.frontmatter_of(file);
+		const type = fm?.type as MediaType | undefined;
 		if (!type) {
 			new Notice("This note has no 'type' property.");
 			return;
@@ -251,7 +255,7 @@ export default class MediaTrackerPlugin extends Plugin {
 		if (!selected) return;
 
 		const property = kind === "poster" ? "cover" : "banner";
-		await this.app.fileManager.processFrontMatter(file, frontmatter => {
+		await this.app.fileManager.processFrontMatter(file, (frontmatter: Frontmatter) => {
 			frontmatter[property] = selected.url;
 			if (selected.steam_appid) frontmatter.steam_appid = selected.steam_appid;
 			if (selected.steamgriddb_id) frontmatter.steamgriddb_id = selected.steamgriddb_id;
@@ -263,20 +267,19 @@ export default class MediaTrackerPlugin extends Plugin {
 
 	private async fetch_tmdb_images(
 		file: TFile,
-		fm: Record<string, any> | undefined,
+		fm: Frontmatter | undefined,
 		type: MediaType,
 		kind: "poster" | "backdrop",
 	): Promise<MediaImage[] | null> {
 		const tmdb = this.tmdb();
-		let tmdb_id: number | undefined = fm?.tmdb_id;
-		let season_number: number | undefined = fm?.season_number;
+		let tmdb_id = fm?.tmdb_id as number | undefined;
+		const season_number = fm?.season_number as number | undefined;
 
 		// For a season note, look up the parent show's tmdb_id.
-		if (type === "season" && fm?.series) {
-			const parent = this.resolve_link(fm.series, file);
-			tmdb_id = parent
-				? this.app.metadataCache.getFileCache(parent)?.frontmatter?.tmdb_id
-				: undefined;
+		const series = fm?.series;
+		if (type === "season" && typeof series === "string") {
+			const parent = this.resolve_link(series, file);
+			tmdb_id = parent ? (this.frontmatter_of(parent)?.tmdb_id as number | undefined) : undefined;
 		}
 		if (!tmdb_id) {
 			new Notice("No 'tmdb_id' found on this note (or its parent show).");
@@ -290,12 +293,13 @@ export default class MediaTrackerPlugin extends Plugin {
 
 	private async fetch_game_images(
 		file: TFile,
-		fm: Record<string, any> | undefined,
+		fm: Frontmatter | undefined,
 		kind: "poster" | "backdrop",
 	): Promise<MediaImage[] | null> {
 		const sgdb = this.steamgriddb();
-		let sgdb_id: number | undefined = fm?.steamgriddb_id;
-		let steam_appid: string | undefined = fm?.steam_appid ? String(fm.steam_appid) : undefined;
+		let sgdb_id = fm?.steamgriddb_id as number | undefined;
+		const raw_appid = fm?.steam_appid as string | number | undefined;
+		const steam_appid = raw_appid != null && raw_appid !== "" ? String(raw_appid) : undefined;
 
 		// Resolve the SteamGridDB game id from a Steam app id when missing.
 		if (steam_appid && !sgdb_id) {
@@ -308,7 +312,7 @@ export default class MediaTrackerPlugin extends Plugin {
 			const query = await prompt(
 				this.app,
 				"Search game on SteamGridDB",
-				fm?.title || file.basename,
+				(fm?.title as string) || file.basename,
 			);
 			if (!query) return null;
 			const games = await sgdb.autocomplete(query);
@@ -356,7 +360,7 @@ export default class MediaTrackerPlugin extends Plugin {
 				await this.open_note(existing);
 				return existing;
 			}
-			await this.app.vault.delete(existing);
+			await this.app.fileManager.trashFile(existing);
 		}
 
 		const file = await this.app.vault.create(path, contents);
@@ -385,9 +389,13 @@ export default class MediaTrackerPlugin extends Plugin {
 	private async link_season_to_parent(parent: TFile, season: TFile) {
 		const property = this.settings.seasons_property;
 		const link = `[[${season.basename}]]`;
-		await this.app.fileManager.processFrontMatter(parent, fm => {
-			let list = fm[property];
-			if (!Array.isArray(list)) list = list ? [list] : [];
+		await this.app.fileManager.processFrontMatter(parent, (fm: Frontmatter) => {
+			const current = fm[property];
+			const list: string[] = Array.isArray(current)
+				? (current as string[])
+				: current != null && current !== ""
+					? [current as string]
+					: [];
 			if (!list.includes(link)) list.push(link);
 			fm[property] = list;
 		});
@@ -405,6 +413,12 @@ export default class MediaTrackerPlugin extends Plugin {
 		const file = this.app.workspace.getActiveFile();
 		if (!file || file.extension !== "md") throw new Error("Open a markdown note first.");
 		return file;
+	}
+
+	private frontmatter_of(file: TFile): Frontmatter | undefined {
+		// Obsidian types `frontmatter` as `any`; expose it with `unknown` values.
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+		return this.app.metadataCache.getFileCache(file)?.frontmatter as Frontmatter | undefined;
 	}
 
 	private resolve_link(link: string, source: TFile): TFile | null {

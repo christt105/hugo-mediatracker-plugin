@@ -25,6 +25,35 @@ interface TMDBImage {
 	vote_count: number;
 }
 
+interface TMDBVideo {
+	site: string;
+	type: string;
+	key: string;
+}
+
+interface TMDBDetailResponse {
+	id: number;
+	title?: string;
+	name?: string;
+	original_title?: string;
+	original_name?: string;
+	release_date?: string;
+	first_air_date?: string;
+	overview?: string;
+	poster_path?: string;
+	backdrop_path?: string;
+	genres?: { name: string }[];
+	homepage?: string;
+	tagline?: string;
+	vote_average?: number;
+	number_of_seasons?: number;
+	credits?: {
+		cast?: { name: string; character: string }[];
+		crew?: { job: string; name: string }[];
+	};
+	videos?: { results?: TMDBVideo[] };
+}
+
 export class TMDBClient {
 	constructor(
 		private readonly api_key: string,
@@ -50,7 +79,7 @@ export class TMDBClient {
 
 	async get_details(id: number, type: MediaType, language: string): Promise<MediaData> {
 		const path = type === "tv" ? "tv" : "movie";
-		const r = await get_json<any>(
+		const r = await get_json<TMDBDetailResponse>(
 			`${TMDB_BASE}/${path}/${id}`,
 			this.auth_params({ language, append_to_response: "videos,credits" }),
 			this.auth_headers(),
@@ -65,13 +94,13 @@ export class TMDBClient {
 			overview: clean(r.overview || ""),
 			cover: r.poster_path ? IMG_ORIGINAL + r.poster_path : "",
 			banner: r.backdrop_path ? IMG_ORIGINAL + r.backdrop_path : "",
-			genres: (r.genres || []).map((g: { name: string }) => g.name),
+			genres: (r.genres || []).map(g => g.name),
 			rating: "",
 			tmdb_id: r.id,
-			director: (r.credits?.crew || []).find((c: any) => c.job === "Director")?.name,
+			director: (r.credits?.crew || []).find(c => c.job === "Director")?.name,
 			main_actors: (r.credits?.cast || [])
 				.slice(0, 10)
-				.map((a: any) => `${a.name} (${a.character})`),
+				.map(a => `${a.name} (${a.character})`),
 			homepage: r.homepage || "",
 			tagline: r.tagline || "",
 			vote_average: r.vote_average,

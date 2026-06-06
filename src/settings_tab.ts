@@ -146,10 +146,12 @@ export class MediaTrackerSettingTab extends PluginSettingTab {
 			.setDesc("Language used when fetching movie/TV data.")
 			.addDropdown(dd => {
 				dd.addOption("auto", "auto");
-				window.moment.locales().forEach(locale => dd.addOption(locale, locale));
-				dd.setValue(this.settings.locale_preference).onChange(async value => {
+				window.moment.locales().forEach(locale => {
+					dd.addOption(locale, locale);
+				});
+				dd.setValue(this.settings.locale_preference).onChange(value => {
 					this.settings.locale_preference = value;
-					await this.save();
+					void this.save();
 				});
 			});
 

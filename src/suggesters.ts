@@ -5,7 +5,7 @@ export class FolderSuggest extends AbstractInputSuggest<TFolder> {
 	constructor(
 		app: App,
 		private input: HTMLInputElement,
-		private on_pick: (value: string) => void,
+		private on_pick: (value: string) => unknown,
 	) {
 		super(app, input);
 	}
@@ -33,7 +33,7 @@ export class FileSuggest extends AbstractInputSuggest<TFile> {
 	constructor(
 		app: App,
 		private input: HTMLInputElement,
-		private on_pick: (value: string) => void,
+		private on_pick: (value: string) => unknown,
 	) {
 		super(app, input);
 	}

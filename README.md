@@ -133,7 +133,22 @@ overview: "Eighties teenager Marty McFly..."
 npm install
 npm run dev      # watch + rebuild
 npm run build    # type-check + production build
+npm run lint     # eslint (obsidianmd ruleset)
 ```
+
+### Releasing
+
+Releases are automated by `.github/workflows/release.yml` (from the official
+Obsidian sample plugin). Bump the version and push a tag:
+
+```bash
+npm version patch   # updates manifest.json + versions.json via version-bump.mjs
+git push --follow-tags
+```
+
+Pushing a tag builds the plugin and creates a **draft GitHub release** with
+`main.js`, `manifest.json` and `styles.css` attached, ready to publish.
+A separate `lint.yml` workflow type-checks and lints every push and PR.
 
 ## Attribution
 

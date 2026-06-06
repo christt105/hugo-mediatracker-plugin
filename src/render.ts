@@ -93,6 +93,8 @@ export function substitute_variables(template: string, media: MediaData): string
 		const value = (media as Record<string, unknown>)[key];
 		if (value === undefined || value === null) return "";
 		if (Array.isArray(value)) return value.join(", ");
+		if (typeof value === "object") return JSON.stringify(value);
+		// eslint-disable-next-line @typescript-eslint/no-base-to-string
 		return String(value);
 	});
 }
