@@ -23,7 +23,7 @@ website. **New here? Start with the starter site, then use this plugin to fill i
   ([live demo](https://christt105.github.io/mediatracker-starter/))
 - 🎨 **[hugo-mediatracker-theme](https://github.com/christt105/hugo-mediatracker-theme)** —
   the Hugo theme that renders the library (gallery, search, filters, stats, RSS).
-- 📥 **hugo-mediatracker-plugin** — this repo: the Obsidian plugin that creates
+- 📥 **obsidian-mediatracker-plugin** — this repo: the Obsidian plugin that creates
   theme-compatible notes.
 
 ## Features
@@ -234,7 +234,7 @@ plugin straight from this repository:
 1. Install **BRAT** from *Settings → Community plugins → Browse* and enable it.
 2. Run the command **BRAT: Add a beta plugin for testing** (or *Settings → BRAT →
    Add Beta Plugin*).
-3. Enter `christt105/hugo-mediatracker-plugin` and confirm. BRAT grabs the latest
+3. Enter `christt105/obsidian-mediatracker-plugin` and confirm. BRAT grabs the latest
    release, so leave the version as *latest*.
 4. Enable **Media Tracker** in *Settings → Community plugins* and add your API keys.
 
@@ -243,7 +243,7 @@ plugin straight from this repository:
 ### Manual
 
 1. Download `main.js`, `manifest.json` and `styles.css` from the
-   [latest release](https://github.com/christt105/hugo-mediatracker-plugin/releases).
+   [latest release](https://github.com/christt105/obsidian-mediatracker-plugin/releases).
 2. Copy them into `<vault>/.obsidian/plugins/media-tracker/`.
 3. Reload Obsidian and enable **Media Tracker** in *Settings → Community plugins*.
 
