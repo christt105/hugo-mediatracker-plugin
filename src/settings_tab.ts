@@ -31,6 +31,7 @@ export class MediaTrackerSettingTab extends PluginSettingTab {
 		this.add_folder_setting(containerEl, "TV shows folder", "tv_folder");
 		this.add_folder_setting(containerEl, "Seasons folder", "seasons_folder");
 		this.add_folder_setting(containerEl, "Games folder", "games_folder");
+		this.add_folder_setting(containerEl, "Books folder", "books_folder");
 
 		new Setting(containerEl)
 			.setName("File name format")
@@ -122,6 +123,7 @@ export class MediaTrackerSettingTab extends PluginSettingTab {
 		this.add_file_setting(containerEl, "TV show template", "template_tv");
 		this.add_file_setting(containerEl, "Season template", "template_season");
 		this.add_file_setting(containerEl, "Game template", "template_game");
+		this.add_file_setting(containerEl, "Book template", "template_book");
 
 		// ----- Providers -----
 		new Setting(containerEl).setName("Providers").setHeading();
@@ -146,6 +148,11 @@ export class MediaTrackerSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("TMDB API key")
+			.setDesc(
+				"Leave empty to use the bundled shared key. It's shared by all users without " +
+					"their own key, so it may be rate-limited at busy times — set your own (free) " +
+					"key for a private, unthrottled quota.",
+			)
 			.addText(text => {
 				text.inputEl.type = "password";
 				text.setValue(this.settings.tmdb_api_key).onChange(async value => {
@@ -275,6 +282,19 @@ export class MediaTrackerSettingTab extends PluginSettingTab {
 				}),
 			);
 
+		// ----- Open Library -----
+		new Setting(containerEl).setName("Open Library (books)").setHeading();
+		containerEl.createEl("p", {
+			cls: "setting-item-description",
+			text:
+				"Books are fetched from Open Library, a free open catalogue from the Internet " +
+				"Archive. No API key is required — just run \"Add book\". Your preferred locale " +
+				"(see the TMDB section) filters the search and picks a localized title and cover " +
+				"when an edition exists in that language; synopses are catalogue-wide and usually " +
+				"in English.",
+		});
+		this.add_link(containerEl, "About Open Library", "https://openlibrary.org/");
+
 		// ----- SteamGridDB -----
 		new Setting(containerEl).setName("SteamGridDB (artwork)").setHeading();
 		this.add_link(
@@ -313,7 +333,7 @@ export class MediaTrackerSettingTab extends PluginSettingTab {
 	private add_folder_setting(
 		container: HTMLElement,
 		name: string,
-		key: "movies_folder" | "tv_folder" | "seasons_folder" | "games_folder",
+		key: "movies_folder" | "tv_folder" | "seasons_folder" | "games_folder" | "books_folder",
 	) {
 		new Setting(container).setName(name).addSearch(cb => {
 			cb.setPlaceholder("Example: Media Tracker/...")
@@ -332,7 +352,7 @@ export class MediaTrackerSettingTab extends PluginSettingTab {
 	private add_file_setting(
 		container: HTMLElement,
 		name: string,
-		key: "template_movie" | "template_tv" | "template_season" | "template_game",
+		key: "template_movie" | "template_tv" | "template_season" | "template_game" | "template_book",
 	) {
 		new Setting(container).setName(name).addSearch(cb => {
 			cb.setPlaceholder("Example: Templates/Movie.md")

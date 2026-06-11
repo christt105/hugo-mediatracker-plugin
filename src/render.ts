@@ -54,6 +54,27 @@ export function default_frontmatter(
 			related: [],
 			overview: media.overview,
 		};
+	} else if (media.type === "book") {
+		fm = {
+			title: media.title,
+			type: "book",
+			date: "",
+			rereads: [],
+			release_date: media.release_date,
+			status,
+			cover: media.cover,
+			rating: "",
+			genres: media.genres,
+			author: media.author ?? "",
+			...(media.authors && media.authors.length > 1 ? { authors: media.authors } : {}),
+			...(media.page_count ? { page_count: media.page_count } : {}),
+			publisher: media.publisher ?? "",
+			...(media.openlibrary_id ? { openlibrary_id: media.openlibrary_id } : {}),
+			...(media.isbn ? { isbn: media.isbn } : {}),
+			tags: [],
+			related: [],
+			overview: media.overview,
+		};
 	} else if (media.type === "season") {
 		fm = {
 			title: media.title,

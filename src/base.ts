@@ -2,9 +2,9 @@
 // ready-made gallery and table views over the media library.
 export const MEDIA_VIEWS_BASE = `filters:
   and:
-    - type == "movie" || type == "tv" || type == "videogame"
+    - type == "movie" || type == "tv" || type == "videogame" || type == "book"
 formulas:
-  Type: if(type == "movie", "🎬 Movie", if(type == "tv", "📺 TV", "🎮 Game"))
+  Type: if(type == "movie", "🎬 Movie", if(type == "tv", "📺 TV", if(type == "videogame", "🎮 Game", "📚 Book")))
 properties:
   note.cover:
     displayName: Cover
@@ -63,6 +63,18 @@ views:
     filters:
       and:
         - type == "videogame"
+    sort:
+      - property: date
+        direction: DESC
+    image: note.cover
+    imageFit: contain
+    imageAspectRatio: 1.5
+    cardSize: 150
+  - type: cards
+    name: Books
+    filters:
+      and:
+        - type == "book"
     sort:
       - property: date
         direction: DESC

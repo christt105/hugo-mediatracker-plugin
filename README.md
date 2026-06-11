@@ -2,9 +2,10 @@
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/christt105)
 
-An Obsidian plugin to track **movies, TV shows, seasons and video games** in one
-place. It pulls rich metadata and artwork from **TMDB**, **TheTVDB**, **IGDB**,
-**Steam** and **SteamGridDB**, and creates clean, customizable notes for every entry.
+An Obsidian plugin to track **movies, TV shows, seasons, video games and books** in
+one place. It pulls rich metadata and artwork from **TMDB**, **TheTVDB**, **IGDB**,
+**Steam**, **SteamGridDB** and **Open Library**, and creates clean, customizable
+notes for every entry.
 
 This plugin replaces the QuickAdd + Templater + Movie Search script bundle from the
 [Media Tracker Obsidian Template](https://github.com/christt105/media-tracker-obsidian-template):
@@ -21,6 +22,8 @@ wire up, no extra plugins required.
 - **Video games** — search IGDB and create a note with cover, screenshot/banner,
   developer, platforms, genres and Steam app id. Official Steam artwork is used
   automatically when the game is on Steam.
+- **Books** — search **Open Library** (no API key needed) and create a note with
+  cover, author, publisher, page count, genres, ISBN and synopsis.
 - **Seasons** — from an open TV show note, generate a linked season note in one
   command. Season air date and poster are pulled from TMDB when available, and a
   link is added back to the show automatically.
@@ -38,19 +41,22 @@ wire up, no extra plugins required.
 | --- | --- |
 | **Add movie or TV show** | Search TMDB and create a note. |
 | **Add video game** | Search IGDB and create a note. |
+| **Add book** | Search Open Library and create a note. |
 | **Create season (from active show note)** | Create a season note linked to the open TV show. |
 | **Search Steam App ID (for active note)** | Find and store `steam_appid`. |
 | **Update images (cover / banner)** | Pick a new cover or banner for the active note. |
 | **Create media views (Bases gallery & table)** | Generate a `.base` file with ready-made gallery and table views. |
 
-Two ribbon icons are also added: 🎬 *Add movie or TV show* and 🎮 *Add video game*.
-Assign your own hotkeys in **Settings → Hotkeys** (search for "Media Tracker").
+Three ribbon icons are also added: 🎬 *Add movie or TV show*, 🎮 *Add video game* and
+📖 *Add book*. Assign your own hotkeys in **Settings → Hotkeys** (search for "Media
+Tracker").
 
 ## Setup
 
 Open **Settings → Media Tracker** and fill in the API keys for the services you want
-to use. Configure only what you need — but **at least one of TMDB or TheTVDB** is
-required for movies/TV.
+to use. Configure only what you need — **TMDB, TheTVDB and Open Library work out of
+the box** (movies, TV and books need no setup), so you only need keys for IGDB
+(games) and SteamGridDB (extra artwork), or to use your own TMDB/TheTVDB keys.
 
 ### Providers
 
@@ -66,6 +72,12 @@ Both `tmdb_id` and `thetvdb_id` are stored on each note when available, so updat
 images can use whichever provider has the artwork (and respects seasons).
 
 ### TMDB (movies & TV shows)
+
+**Works out of the box** — the plugin bundles a shared TMDB key, so movies and TV
+work with no setup. Because it's shared by everyone without their own key, it may be
+rate-limited at busy times.
+
+To use your own (free, private, unthrottled) key instead:
 
 1. [Create a TMDB account and request an API key](https://www.themoviedb.org/settings/api).
 2. Paste either the **v3 API key** or the **v4 read access token** into *TMDB API key*.
@@ -102,11 +114,24 @@ Generate an API key from your
 [SteamGridDB preferences](https://www.steamgriddb.com/profile/preferences/api) and
 paste it into *SteamGridDB API key*. Used by **Update images** for game artwork.
 
+### Open Library (books)
+
+**Works out of the box** — books come from [Open Library](https://openlibrary.org/),
+a free open catalogue from the Internet Archive that needs **no API key**. Just run
+**Add book**. The cover, author, publisher, page count, genres, ISBN and synopsis are
+filled in automatically.
+
+**Languages.** Your preferred locale (set in the TMDB section) filters the search and
+selects a localized **title and cover** when the book has an edition in that language
+— e.g. with a Spanish locale, *The Hobbit* becomes *El Hobbit* with its Spanish cover.
+Synopses are catalogue-wide and usually in English, since Open Library stores the
+description on the work rather than per language.
+
 ## Customization
 
 | Setting | What it does |
 | --- | --- |
-| Movies / TV / Seasons / Games folder | Where each kind of note is created. |
+| Movies / TV / Seasons / Games / Books folder | Where each kind of note is created. |
 | File name format | `{{title}}`, `{{year}}`, `{{release_date}}` placeholders. |
 | Default status | Status assigned to new entries (e.g. `Not Started`). |
 | Frontmatter property case | `snake_case` or `camelCase` keys. |
@@ -125,7 +150,8 @@ Available variables include: `title`, `original_title`, `type`, `release_date`,
 `year`, `overview`, `cover`, `banner`, `genres`, `rating`, `tmdb_id`, `director`,
 `main_actors`, `homepage`, `tagline`, `youtube_url`, `number_of_seasons`, `tmdb_id`,
 `thetvdb_id`, `igdb_id`, `steam_appid`, `steamgriddb_id`, `developer`,
-`available_platforms`, `game_modes`, `season_number`, `series_file`.
+`available_platforms`, `game_modes`, `season_number`, `series_file`, `openlibrary_id`,
+`author`, `authors`, `publisher`, `isbn`, `page_count`.
 
 > [!NOTE]
 > For games, `available_platforms` holds the platforms the game is released on (from
@@ -156,6 +182,31 @@ tmdb_id: 105
 tags: []
 related: []
 overview: "Eighties teenager Marty McFly..."
+---
+```
+
+…and a book:
+
+```yaml
+---
+title: The Hobbit
+type: book
+date: ""
+rereads: []
+release_date: "1937"
+status: Not Started
+cover: https://covers.openlibrary.org/b/id/14627509-L.jpg
+rating: ""
+genres:
+  - Fantasy
+author: J.R.R. Tolkien
+page_count: 310
+publisher: Del Rey Books
+openlibrary_id: OL27482W
+isbn: "9780007525492"
+tags: []
+related: []
+overview: "The Hobbit is a tale of high adventure, undertaken by a company of dwarves..."
 ---
 ```
 
@@ -235,6 +286,7 @@ This project uses data and images from:
 - [IGDB](https://www.igdb.com/)
 - [Steam](https://store.steampowered.com/)
 - [SteamGridDB](https://www.steamgriddb.com/)
+- [Open Library](https://openlibrary.org/)
 
 ## License
 

@@ -8,9 +8,10 @@ import {
 	template_for,
 } from "@/settings";
 import { MediaTrackerSettingTab } from "@/settings_tab";
-import { TMDBClient } from "@/apis/tmdb";
+import { DEFAULT_TMDB_API_KEY, TMDBClient } from "@/apis/tmdb";
 import { DEFAULT_THETVDB_API_KEY, TheTVDBClient } from "@/apis/thetvdb";
 import { IGDBClient } from "@/apis/igdb";
+import { OpenLibraryClient } from "@/apis/openlibrary";
 import { search_steam } from "@/apis/steam";
 import { SteamGridDBClient } from "@/apis/steamgriddb";
 import { render_note, substitute_variables } from "@/render";
@@ -37,6 +38,11 @@ export default class MediaTrackerPlugin extends Plugin {
 			callback: () => this.run(() => this.add_game()),
 		});
 		this.addCommand({
+			id: "add-book",
+			name: "Add book",
+			callback: () => this.run(() => this.add_book()),
+		});
+		this.addCommand({
 			id: "create-season",
 			name: "Create season (from active show note)",
 			callback: () => this.run(() => this.create_season()),
@@ -61,6 +67,7 @@ export default class MediaTrackerPlugin extends Plugin {
 			this.run(() => this.add_movie_or_tv()),
 		);
 		this.addRibbonIcon("gamepad-2", "Add video game", () => this.run(() => this.add_game()));
+		this.addRibbonIcon("book", "Add book", () => this.run(() => this.add_book()));
 
 		this.addSettingTab(new MediaTrackerSettingTab(this.app, this));
 	}
@@ -86,9 +93,15 @@ export default class MediaTrackerPlugin extends Plugin {
 
 	// --- API client factories ------------------------------------------------
 
+	/** The TMDB key, falling back to the bundled shared key. */
+	private tmdb_api_key(): string {
+		return this.settings.tmdb_api_key || DEFAULT_TMDB_API_KEY;
+	}
+
 	private tmdb(): TMDBClient {
-		if (!this.settings.tmdb_api_key) throw new Error("Set your TMDB API key in the settings.");
-		return new TMDBClient(this.settings.tmdb_api_key, this.settings.include_adult);
+		const key = this.tmdb_api_key();
+		if (!key) throw new Error("Set your TMDB API key in the settings.");
+		return new TMDBClient(key, this.settings.include_adult);
 	}
 
 	/** The TheTVDB key, falling back to the bundled project key. */
@@ -111,7 +124,7 @@ export default class MediaTrackerPlugin extends Plugin {
 	}
 
 	private provider_configured(provider: Provider): boolean {
-		return provider === "tmdb" ? !!this.settings.tmdb_api_key : !!this.thetvdb_api_key();
+		return provider === "tmdb" ? !!this.tmdb_api_key() : !!this.thetvdb_api_key();
 	}
 
 	/**
@@ -148,6 +161,23 @@ export default class MediaTrackerPlugin extends Plugin {
 			},
 			this.settings.prefer_steam_artwork,
 		);
+	}
+
+	/** Open Library needs no key; pass the preferred locale to localize results. */
+	private openlibrary(): OpenLibraryClient {
+		return new OpenLibraryClient(this.marc_language());
+	}
+
+	/**
+	 * Map the preferred locale to a 3-letter MARC bibliographic code, which is
+	 * what Open Library expects. These differ from TheTVDB's codes for several
+	 * languages (e.g. French is "fre" here but "fra" there).
+	 */
+	private marc_language(): string {
+		let locale = this.settings.locale_preference;
+		if (!locale || locale === "auto") locale = window.moment.locale() || "en";
+		const two = locale.split("-")[0].toLowerCase();
+		return MARC_LANGUAGES[two] ?? "eng";
 	}
 
 	private steamgriddb(): SteamGridDBClient {
@@ -247,6 +277,23 @@ export default class MediaTrackerPlugin extends Plugin {
 		await this.create_note(media);
 	}
 
+	private async add_book() {
+		const openlibrary = this.openlibrary();
+		const query = await prompt(this.app, "Search book");
+		if (!query) return;
+
+		const results = await openlibrary.search(query);
+		if (!results.length) {
+			new Notice(`No results for "${query}".`);
+			return;
+		}
+		const selected = await choose_result(this.app, results);
+		if (!selected) return;
+
+		const media = await openlibrary.to_media_data(selected);
+		await this.create_note(media);
+	}
+
 	private async create_season() {
 		const file = this.active_markdown_file();
 		const fm = this.frontmatter_of(file);
@@ -290,7 +337,7 @@ export default class MediaTrackerPlugin extends Plugin {
 			if (prefer_tvdb && thetvdb_id) {
 				const images = await this.thetvdb().get_season_images(thetvdb_id, season_number, "poster");
 				if (images.length) media.cover = images[0].url;
-			} else if (tmdb_id && this.settings.tmdb_api_key) {
+			} else if (tmdb_id && this.tmdb_api_key()) {
 				const language = await this.resolve_language();
 				const season = await this.tmdb().get_season(tmdb_id, season_number, language);
 				if (season.air_date) media.release_date = season.air_date;
@@ -436,7 +483,7 @@ export default class MediaTrackerPlugin extends Plugin {
 		const images: MediaImage[] = [];
 		for (const provider of order) {
 			try {
-				if (provider === "tmdb" && tmdb_id && this.settings.tmdb_api_key) {
+				if (provider === "tmdb" && tmdb_id && this.tmdb_api_key()) {
 					images.push(...(await this.tmdb_av_images(tmdb_id, type, kind, season_number)));
 				} else if (provider === "thetvdb" && thetvdb_id && this.thetvdb_api_key()) {
 					images.push(...(await this.thetvdb_av_images(thetvdb_id, type, kind, season_number)));
@@ -710,4 +757,39 @@ const TVDB_LANGUAGES: Record<string, string> = {
 	th: "tha",
 	uk: "ukr",
 	ro: "ron",
+};
+
+/**
+ * ISO-639-1 (2-letter) → MARC bibliographic (639-2/B) codes, used by Open
+ * Library. Differs from {@link TVDB_LANGUAGES} for languages whose biblio and
+ * terminology codes diverge (fre/ger/dut/gre/chi/cze/...).
+ */
+const MARC_LANGUAGES: Record<string, string> = {
+	en: "eng",
+	es: "spa",
+	ca: "cat",
+	pt: "por",
+	fr: "fre",
+	de: "ger",
+	it: "ita",
+	nl: "dut",
+	ja: "jpn",
+	ko: "kor",
+	zh: "chi",
+	ru: "rus",
+	pl: "pol",
+	sv: "swe",
+	da: "dan",
+	fi: "fin",
+	no: "nor",
+	cs: "cze",
+	el: "gre",
+	he: "heb",
+	hu: "hun",
+	tr: "tur",
+	ar: "ara",
+	hi: "hin",
+	th: "tai",
+	uk: "ukr",
+	ro: "rum",
 };

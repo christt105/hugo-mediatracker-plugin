@@ -1,6 +1,6 @@
 // Shared data models used across the plugin.
 
-export type MediaType = "movie" | "tv" | "season" | "videogame";
+export type MediaType = "movie" | "tv" | "season" | "videogame" | "book";
 
 export type Provider = "tmdb" | "thetvdb";
 
@@ -60,6 +60,14 @@ export interface MediaData {
 	/** Platforms the game is available on (from IGDB). */
 	available_platforms?: string[];
 	game_modes?: string[];
+
+	// Books
+	openlibrary_id?: string;
+	author?: string;
+	authors?: string[];
+	publisher?: string;
+	isbn?: string;
+	page_count?: number;
 
 	// Season
 	season_number?: number;

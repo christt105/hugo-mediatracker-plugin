@@ -48,6 +48,7 @@ export interface MediaTrackerSettings {
 	tv_folder: string;
 	seasons_folder: string;
 	games_folder: string;
+	books_folder: string;
 	file_name_format: string;
 	default_status: string;
 	open_note_on_creation: boolean;
@@ -62,6 +63,7 @@ export interface MediaTrackerSettings {
 	template_tv: string;
 	template_season: string;
 	template_game: string;
+	template_book: string;
 
 	frontmatter_case: FrontmatterCase;
 
@@ -96,6 +98,7 @@ export const DEFAULT_SETTINGS: MediaTrackerSettings = {
 	tv_folder: "Media Tracker/TVs",
 	seasons_folder: "Media Tracker/Seasons",
 	games_folder: "Media Tracker/Games",
+	books_folder: "Media Tracker/Books",
 	file_name_format: "{{title}} ({{year}})",
 	default_status: "Not Started",
 	open_note_on_creation: true,
@@ -108,6 +111,7 @@ export const DEFAULT_SETTINGS: MediaTrackerSettings = {
 	template_tv: "",
 	template_season: "",
 	template_game: "",
+	template_book: "",
 
 	frontmatter_case: FrontmatterCase.snake,
 
@@ -124,6 +128,8 @@ export function folder_for(settings: MediaTrackerSettings, type: MediaType): str
 			return settings.seasons_folder;
 		case "videogame":
 			return settings.games_folder;
+		case "book":
+			return settings.books_folder;
 	}
 }
 
@@ -137,5 +143,7 @@ export function template_for(settings: MediaTrackerSettings, type: MediaType): s
 			return settings.template_season;
 		case "videogame":
 			return settings.template_game;
+		case "book":
+			return settings.template_book;
 	}
 }

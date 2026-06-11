@@ -5,6 +5,14 @@ const TMDB_BASE = "https://api.themoviedb.org/3";
 const IMG_ORIGINAL = "https://image.tmdb.org/t/p/original";
 const IMG_THUMB = "https://image.tmdb.org/t/p/w342";
 
+/**
+ * A bundled TMDB v3 API key so the plugin works out of the box, the same as the
+ * TheTVDB key. It is shared by everyone who hasn't set their own, so it may hit
+ * rate limits when many users rely on it at once — set your own key in the
+ * settings (it's free) to get a private, unthrottled quota.
+ */
+export const DEFAULT_TMDB_API_KEY = "99490ee31f30168287ef717608f10fc7";
+
 interface TMDBSearchResult {
 	id: number;
 	media_type: string;
