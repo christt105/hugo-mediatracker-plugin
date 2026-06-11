@@ -12,6 +12,20 @@ This plugin replaces the QuickAdd + Templater + Movie Search script bundle from 
 everything is now a single, comfortable plugin with native settings — no scripts to
 wire up, no extra plugins required.
 
+## Media Tracker ecosystem
+
+The plugin is one piece of a small ecosystem that turns your media library into a
+website. **New here? Start with the starter site, then use this plugin to fill it.**
+
+- 🚀 **[mediatracker-starter](https://github.com/christt105/mediatracker-starter)** —
+  **start here.** A ready-to-clone Hugo site you can deploy to GitHub Pages in
+  minutes. Point this plugin at its `content/` folder and you're tracking.
+  ([live demo](https://christt105.github.io/mediatracker-starter/))
+- 🎨 **[hugo-mediatracker-theme](https://github.com/christt105/hugo-mediatracker-theme)** —
+  the Hugo theme that renders the library (gallery, search, filters, stats, RSS).
+- 📥 **hugo-mediatracker-plugin** — this repo: the Obsidian plugin that creates
+  theme-compatible notes.
+
 ## Features
 
 - **Movies & TV shows** — search **TMDB or TheTVDB** and create a note with poster,
@@ -192,7 +206,7 @@ overview: "Eighties teenager Marty McFly..."
 title: The Hobbit
 type: book
 date: ""
-rereads: []
+rewatches: []
 release_date: "1937"
 status: Not Started
 cover: https://covers.openlibrary.org/b/id/14627509-L.jpg

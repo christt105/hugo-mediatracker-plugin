@@ -59,7 +59,7 @@ export function default_frontmatter(
 			title: media.title,
 			type: "book",
 			date: "",
-			rereads: [],
+			rewatches: [],
 			release_date: media.release_date,
 			status,
 			cover: media.cover,
